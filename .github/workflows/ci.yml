@@ -1,0 +1,54 @@
+name: testes
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  testes:
+    runs-on: ${{ matrix.so }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        so: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # O juiz e a ENTROPIA de Shannon, e a volta conferida byte a byte.
+      # "Comprimiu 30%" nao diz nada sozinho: pode ser otimo ou pode ser o dobro
+      # do necessario. Com a entropia da para dizer quanto cada metodo esta
+      # desperdicando, e com a descompressao da para dizer que ele comprimiu
+      # mesmo, em vez de so ter jogado bits fora.
+      - name: testes
+        run: dotnet test testes/Compressao.Testes/Compressao.Testes.csproj -c Release --nologo -v q
+
+      - name: a entropia de cada fonte, que e o limite
+        run: dotnet run --project ferramentas/Medidor/Medidor.csproj -c Release -- entropia
+
+      # O Huffman respeita o teorema do mais um bit e gasta ONZE VEZES a
+      # entropia na fonte muito enviesada: o teorema nao e consolo quando a
+      # entropia e menor que um bit.
+      - name: Huffman contra o limite
+        run: dotnet run --project ferramentas/Medidor/Medidor.csproj -c Release -- huffman
+
+      - name: a aritmetica e o bit fracionario
+        run: dotnet run --project ferramentas/Medidor/Medidor.csproj -c Release -- aritmetica
+
+      - name: todos os metodos, com a volta conferida
+        run: dotnet run --project ferramentas/Medidor/Medidor.csproj -c Release -- tabela
+
+      # O LZ77 passa POR BAIXO da entropia de ordem zero, e isso nao viola
+      # Shannon: a entropia de ordem zero nao e a entropia de uma fonte com
+      # memoria.
+      - name: o limite que nao e limite
+        run: dotnet run --project ferramentas/Medidor/Medidor.csproj -c Release -- memoria
+
+      - name: nenhum metodo comprime tudo
+        run: dotnet run --project ferramentas/Medidor/Medidor.csproj -c Release -- contagem
